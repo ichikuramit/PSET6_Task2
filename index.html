@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>PSET6_Task2_Ichikura</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://d3js.org/topojson.v2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+ 
+
+
+    <style>
+         #tooltip.hidden {
+            display: none;
+        }
+
+        #tooltip {
+            position: absolute;
+            font-size: 15px;
+        }      
+    </style>
+
+</head>
+
+
+<body>
+    <div id="tooltip" class="hidden">
+        <p><span id="value"></span></p>
+    </div>
+
+        <script>
+
+            var bosNeighborurl='https://gist.githubusercontent.com/cesandoval/09b2e39263c748fbcb84b927cecc7c46/raw/ab71d3638efd2545ec99c2651c6f2ddcea9d2a07/boston.json'
+            var bos311 = 'https://raw.githubusercontent.com/brookefzy/BigData2020/master/pset6/boston_311.csv'
+
+
+            var width = 800;
+            var height = 800;
+
+
+            var albersProjection = d3.geoAlbers()
+                                     .scale(190000)
+                                     .rotate([71.057, 0])
+                                     .center([0,42.313])
+                                     .translate([width/2, height/2]);
+
+
+            var path = d3.geoPath().projection(albersProjection);
+
+
+            var svg = d3.select("body")
+                        .append("svg")
+                        .attr("width",width)
+                        .attr("height", height);
+
+            var g = svg.append("g");
+
+
+            var color = d3.scaleQuantize()
+                          .domain([0, 5.5])
+                          .range(d3.schemePurples[9]);
+
+            var twitter311 = d3.map();
+
+
+
+             var promises = [d3.json(bosNeighborurl),
+                             d3.csv(bos311, function(d){
+                              twitter311.set(d.Name,[+d.twitter, +d.tot_count]);
+                            })]
+
+
+            Promise.all(promises).then(ready)
+
+            function ready([bos]){
+                svg.append('g')
+                   .selectAll("path")
+                   .data(topojson.feature(bos,bos.objects.boston_neigh).features)
+                   .enter()
+                   .append("path")
+                   .style("fill",function(d){return color(d.twitter = Math.log(twitter311.get(d.properties.Name)[0]));})
+                   .attr("d",path)
+                   .on('mouseover', function (d) {
+                        var percentage = 100 * (twitter311.get(d.properties.Name)[0] / twitter311.get(d.properties.Name)[1]);
+                        d3.select("#tooltip")
+                            .style("left", (d3.event.pageX)+"px")
+                            .style("top", (d3.event.pageY)+"px")
+                            .style("background-color", "white")
+                            .style("opacity", 0.6)
+                            .style("padding", '5px')
+                            .style("font-family", "'Open Sans', sans-serif")
+                            .classed("hidden", false);
+                        d3.select('#value')
+                            .html(String(d.properties.Name) + ':' + String(percentage) + '%');
+                    })
+
+
+            var scalenumber = 9;
+            var legendcol = d3.legendColor()
+                              .shapeWidth(20)
+                              .shapeHeight(5)
+                              .cells(scalenumber)
+                              .shapePadding(0)
+                              .labelFormat(d3.format('.2f'))
+                              .labels(['0'])
+                              .title('tweets per neighborhood (log)')
+                              .orient('horizontal')
+                              .scale(color);
+
+            svg.append('g')
+               .attr('transform', 'translate(100, 100)')
+               .call(legendcol);
+
+            d3.select('.legendTitle')
+              .attr('transform', 'translate(0, 10)')
+              .attr('font-size', '10px')
+              .style("font-family", "'Open Sans', sans-serif");
+
+            d3.selectAll('.label')
+              .attr('font-size', '10px')
+              .style("font-family", "'Open Sans', sans-serif")
+              .attr('transform', 'translate(18, 15)')
+              .attr('display', function(d,i){
+                    if(i < scalenumber - 1){return 'none';}})
+              .html(5.5);
+
+
+
+                 };
+
+
+        </script>
+</body>
+
+</html>
+
